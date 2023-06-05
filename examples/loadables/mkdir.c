@@ -52,14 +52,14 @@ int
 mkdir_builtin (list)
      WORD_LIST *list;
 {
-  int opt, pflag, mflag, omode, rval, nmode, parent_mode;
+  int opt, pflag, mflag, cflag, omode, rval, nmode, parent_mode;
   char *mode;
   WORD_LIST *l;
 
   reset_internal_getopt ();
-  pflag = mflag = 0;
+  pflag = mflag = cflag = 0;
   mode = (char *)NULL;
-  while ((opt = internal_getopt(list, "m:p")) != -1)
+  while ((opt = internal_getopt(list, "m:pc")) != -1)
     switch (opt)
       {
 	case 'p':
@@ -68,6 +68,9 @@ mkdir_builtin (list)
 	case 'm':
 	  mflag = 1;
 	  mode = list_optarg;
+	  break;
+	case 'c':
+	  cflag = 1;
 	  break;
 	CASE_HELPOPT;
 	default:
@@ -116,12 +119,12 @@ mkdir_builtin (list)
 
   for (rval = EXECUTION_SUCCESS, l = list; l; l = l->next)
     {
-      if (pflag && make_path (l->word->word, mflag, nmode, parent_mode))
+      if (((pflag || cflag) == 1) && make_path (l->word->word, mflag, cflag, nmode, parent_mode))
 	{
 	  rval = EXECUTION_FAILURE;
 	  continue;
 	}
-      else if (pflag == 0 && mkdir (l->word->word, nmode) < 0)
+      else if (((pflag || cflag) == 0) && mkdir (l->word->word, nmode) < 0)
         {
           builtin_error ("cannot create directory `%s': %s", l->word->word, strerror (errno));
           rval = EXECUTION_FAILURE;
@@ -134,9 +137,10 @@ mkdir_builtin (list)
    this changes the process's umask; make sure that all paths leading to a
    return reset it to ORIGINAL_UMASK */
 static int
-make_path (path, user_mode, nmode, parent_mode)
+make_path (path, user_mode, change_mode, nmode, parent_mode)
      char *path;
      int user_mode;
+     int change_mode;
      int nmode, parent_mode;
 {
   int oumask;
@@ -212,6 +216,35 @@ make_path (path, user_mode, nmode, parent_mode)
       return 1;
     }
 
+  if (change_mode)
+    {
+      SHELL_VAR *tvar1, *tvar2;
+      char *t, *tdir;
+
+      /* Change to the directory component. */
+      t = make_absolute(npath, the_current_working_directory);
+      tdir = sh_canonpath(t, PATH_CHECKDOTDOT|PATH_CHECKEXISTS);
+      if(chdir(tdir))
+        {
+          builtin_error ("cannot change to directory `%s': %s", npath, strerror (errno));
+          free(t);
+          free(tdir);
+          return 1;
+        }
+      set_working_directory(tdir);
+
+      /* Bind and update the OLDPWD environment variable. */
+      char* pwd = get_string_value("PWD");
+      tvar1 = bind_variable("OLDPWD", pwd, 0);
+      update_export_env_inplace("OLDPWD=", 7, pwd);
+
+      /* Bind and update the PWD environment variable. */
+      tvar2 = bind_variable("PWD", tdir, 0);
+      update_export_env_inplace("PWD=", 4, tdir);
+      free(t);
+      free(tdir);
+    }
+
   umask (original_umask);
   free (npath);
   return 0;
@@ -229,9 +262,9 @@ char *mkdir_doc[] = {
 	"an initial mode of \"a=rwx\".  The -p option causes any required",
 	"intermediate directories in PATH to be created.  The directories",
 	"are created with permission bits of rwxrwxrwx as modified by the current",
-	"umask, plus write and search permissions for the owner.  mkdir",
-	"returns 0 if the directories are created successfully, and non-zero",
-	"if an error occurs.",
+	"umask, plus write and search permissions for the owner.  The -p option",
+	"causes the shell to change into the directory. mkdir returns 0 if the",
+	"directories are created successfully, and non-zero if an error occurs.",
 	(char *)NULL
 };
 
@@ -240,6 +273,6 @@ struct builtin mkdir_struct = {
 	mkdir_builtin,
 	BUILTIN_ENABLED,
 	mkdir_doc,
-	"mkdir [-p] [-m mode] directory [directory ...]",
+	"mkdir [-p] [-c] [-m mode] directory [directory ...]",
 	0
 };
