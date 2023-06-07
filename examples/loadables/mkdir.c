@@ -52,14 +52,14 @@ int
 mkdir_builtin (list)
      WORD_LIST *list;
 {
-  int opt, pflag, mflag, cflag, omode, rval, nmode, parent_mode;
+  int opt, pflag, mflag, cflag, vflag, omode, rval, nmode, parent_mode;
   char *mode;
   WORD_LIST *l;
 
   reset_internal_getopt ();
-  pflag = mflag = cflag = 0;
+  pflag = mflag = cflag = vflag = 0;
   mode = (char *)NULL;
-  while ((opt = internal_getopt(list, "m:cp")) != -1)
+  while ((opt = internal_getopt(list, "m:cpv")) != -1)
     switch (opt)
       {
 	case 'p':
@@ -81,6 +81,9 @@ mkdir_builtin (list)
 	case 'm':
 	  mflag = 1;
 	  mode = list_optarg;
+	  break;
+	case 'v':
+	  vflag = 1;
 	  break;
 	CASE_HELPOPT;
 	default:
@@ -129,15 +132,22 @@ mkdir_builtin (list)
 
   for (rval = EXECUTION_SUCCESS, l = list; l; l = l->next)
     {
-      if (((pflag || cflag) == 1) && make_path (l->word->word, mflag, cflag, nmode, parent_mode))
+      if (((pflag || cflag) == 1) && make_path (l->word->word, mflag, cflag, vflag, nmode, parent_mode))
 	{
 	  rval = EXECUTION_FAILURE;
 	  continue;
 	}
-      else if (((pflag || cflag) == 0) && mkdir (l->word->word, nmode) < 0)
+      else if (((pflag || cflag) == 0))
         {
-          builtin_error ("cannot create directory `%s': %s", l->word->word, strerror (errno));
-          rval = EXECUTION_FAILURE;
+          if (mkdir (l->word->word, nmode) < 0)
+            {
+              builtin_error ("cannot create directory `%s': %s", l->word->word, strerror (errno));
+              rval = EXECUTION_FAILURE;
+            }
+	  else if (vflag)
+            {
+              printf("mkdir: created directory: '%s'\n", l->word->word);
+            }
         }
     }
   return rval;
@@ -147,10 +157,11 @@ mkdir_builtin (list)
    this changes the process's umask; make sure that all paths leading to a
    return reset it to ORIGINAL_UMASK */
 static int
-make_path (path, user_mode, change_mode, nmode, parent_mode)
+make_path (path, user_mode, change_mode, verbose_mode, nmode, parent_mode)
      char *path;
      int user_mode;
      int change_mode;
+     int verbose_mode;
      int nmode, parent_mode;
 {
   int oumask;
@@ -211,6 +222,10 @@ make_path (path, user_mode, change_mode, nmode, parent_mode)
           free (npath);
           return 1;
         }
+      if (verbose_mode)
+        {
+          printf("mkdir: created directory: '%s'\n", npath);
+        }
 
       *p++ = '/';	/* restore slash */
       while (*p == '/')
@@ -224,6 +239,11 @@ make_path (path, user_mode, change_mode, nmode, parent_mode)
       umask (original_umask);
       free (npath);
       return 1;
+    }
+
+  if (verbose_mode)
+    {
+      printf("mkdir: created directory: '%s'\n", npath);
     }
 
   if (change_mode)
@@ -251,6 +271,10 @@ make_path (path, user_mode, change_mode, nmode, parent_mode)
       /* Bind and update the PWD environment variable. */
       tvar2 = bind_variable("PWD", tdir, 0);
       update_export_env_inplace("PWD=", 4, tdir);
+      if (verbose_mode)
+        {
+          printf("mkdir: changed into directory: '%s'\n", npath);
+        }
       free(t);
       free(tdir);
     }
@@ -273,8 +297,9 @@ char *mkdir_doc[] = {
 	"intermediate directories in PATH to be created.  The directories",
 	"are created with permission bits of rwxrwxrwx as modified by the current",
 	"umask, plus write and search permissions for the owner.  The -p option",
-	"causes the shell to change into the directory. mkdir returns 0 if the",
-	"directories are created successfully, and non-zero if an error occurs.",
+	"causes the shell to change into the directory. The -v option produces",
+	"verbose logging to stdout.  mkdir returns 0 if the directories are",
+	"created successfully, and non-zero if an error occurs.",
 	(char *)NULL
 };
 
@@ -283,6 +308,6 @@ struct builtin mkdir_struct = {
 	mkdir_builtin,
 	BUILTIN_ENABLED,
 	mkdir_doc,
-	"mkdir [-c|p] [-m mode] directory [directory ...]",
+	"mkdir [[-c|p]v] [-m mode] directory [directory ...]",
 	0
 };
