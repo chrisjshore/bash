@@ -59,18 +59,28 @@ mkdir_builtin (list)
   reset_internal_getopt ();
   pflag = mflag = cflag = 0;
   mode = (char *)NULL;
-  while ((opt = internal_getopt(list, "m:pc")) != -1)
+  while ((opt = internal_getopt(list, "m:cp")) != -1)
     switch (opt)
       {
 	case 'p':
 	  pflag = 1;
+	  if (cflag)
+	    {
+	      builtin_usage();
+	      return 1;
+	    }
+	  break;
+	case 'c':
+	  cflag = 1;
+	  if (pflag)
+	    {
+	      builtin_usage();
+	      return 1;
+	    }
 	  break;
 	case 'm':
 	  mflag = 1;
 	  mode = list_optarg;
-	  break;
-	case 'c':
-	  cflag = 1;
 	  break;
 	CASE_HELPOPT;
 	default:
@@ -273,6 +283,6 @@ struct builtin mkdir_struct = {
 	mkdir_builtin,
 	BUILTIN_ENABLED,
 	mkdir_doc,
-	"mkdir [-p] [-c] [-m mode] directory [directory ...]",
+	"mkdir [-c|p] [-m mode] directory [directory ...]",
 	0
 };
