@@ -86,8 +86,10 @@ examples/loadables/basename
 examples/loadables/csv
 examples/loadables/cut
 examples/loadables/dirname
+examples/loadables/dsv
 examples/loadables/fdflags
 examples/loadables/finfo
+examples/loadables/getconf
 examples/loadables/head
 examples/loadables/id
 examples/loadables/ln
@@ -105,6 +107,7 @@ examples/loadables/rmdir
 examples/loadables/seq
 examples/loadables/setpgid
 examples/loadables/sleep
+examples/loadables/stat
 examples/loadables/strftime
 examples/loadables/sync
 examples/loadables/tee
