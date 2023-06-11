@@ -214,6 +214,10 @@ make_path (path, user_mode, change_mode, verbose_mode, nmode, parent_mode)
 	      free (npath);
 	      return 1;
 	    }
+      if (verbose_mode)
+        {
+          printf("mkdir: created directory '%s'\n", npath);
+        }
 	}
       else if (S_ISDIR (sb.st_mode) == 0)
         {
@@ -221,10 +225,6 @@ make_path (path, user_mode, change_mode, verbose_mode, nmode, parent_mode)
           umask (original_umask);
           free (npath);
           return 1;
-        }
-      if (verbose_mode)
-        {
-          printf("mkdir: created directory: '%s'\n", npath);
         }
 
       *p++ = '/';	/* restore slash */
@@ -243,7 +243,7 @@ make_path (path, user_mode, change_mode, verbose_mode, nmode, parent_mode)
 
   if (verbose_mode)
     {
-      printf("mkdir: created directory: '%s'\n", npath);
+      printf("mkdir: created directory '%s'\n", npath);
     }
 
   if (change_mode)
